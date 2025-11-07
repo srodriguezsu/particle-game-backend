@@ -31,7 +31,10 @@ const http = require('http')
 const { Server } = require('socket.io')
 const { randomUUID } = require('crypto')
 
+const cors = require('cors')
+
 const app = express()
+app.use(cors({origin: '*'}));
 const server = http.createServer(app)
 const io = new Server(server, {
     cors: { origin: '*' }
@@ -294,6 +297,7 @@ io.on('connection', socket => {
 
     socket.on('join_room', (payload, ack) => {
         try {
+            console.log('join_room', payload)
             const { roomCode, name, emoji, color, role } = payload || {}
             const res = joinRoom(socket, roomCode, { name, emoji, color, role })
             if (!res.ok) return ack?.(res)
@@ -320,6 +324,7 @@ io.on('connection', socket => {
         room.turn = 1
         // broadcast
         const state = serializeRoomState(room)
+        console.log('game started', state)
         io.to(roomCode).emit('game_started', state)
         ack?.({ ok: true })
     })
