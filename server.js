@@ -1,29 +1,64 @@
+// javascript
 /**
  * server.js
  * - Express + Socket.IO server for turn-based PSO-like game
  * - Rooms in memory (no persistent history)
  *
- * Events (socket):
+ * Events (socket) RECEIVED from clients:
  *  - create_room { name, emoji, color, role } -> ack { ok, roomCode, room }
  *  - join_room { roomCode, name, emoji, color, role } -> ack { ok, room }
- *  - start_game (creator only)
- *  - submit_choice { roomCode, alpha(0-5), beta(0-5) } (players only)
- *  - advance_turn (creator only) -> server computes new positions and broadcasts state
- *  - leave_room
+ *  - start_game (creator only) -> ack { ok }
+ *  - submit_choice { roomCode, alpha(0-5), beta(0-5) } -> ack { ok }
+ *  - advance_turn (creator only) -> ack { ok }
+ *  - leave_room -> ack { ok }
  *
- * State per player:
- *  { id: socket.id, name, emoji, color, role: 'player'|'spectator',
- *    pos: {x,y}, vel: {x,y}, pbest: {x,y,score}, pendingChoice: {alpha,beta} }
+ * Emitted socket events (server -> clients):
+ *  - room_update
+ *      Descripción: Notifica cambios en la sala (nuevo jugador, salida, actualización de meta).
+ *      Cuándo se emite: tras create_room, join_room, leave_room, disconnect, y cuando cambia el gbest.
+ *      Payload: serializeRoomState(room)
+ *          {
+ *            id: string,
+ *            code: string,
+ *            creatorId: string,
+ *            started: boolean,
+ *            turn: number,
+ *            gbest: { x: number, y: number, score: number, playerId: string } | null,
+ *            players: [
+ *              {
+ *                id: string,
+ *                name: string,
+ *                emoji: string,
+ *                color: string,
+ *                role: 'player'|'spectator',
+ *                pos: { x: number, y: number },
+ *                vel: { x: number, y: number },
+ *                pbest: { x: number, y: number, score: number }
+ *              },
+ *              ...
+ *            ]
+ *          }
  *
- * Simple PSO update used:
- *  v = w * v + c1 * r1 * (pbest - pos) + c2 * r2 * (gbest - pos)
- *  pos = pos + v
+ *  - game_started
+ *      Descripción: Indica que el creador ha iniciado la partida.
+ *      Cuándo se emite: cuando el creador llama a start_game.
+ *      Payload: serializeRoomState(room) (igual que arriba)
  *
- * Where c1 = alpha (0..5), c2 = beta (0..5), w default 0.7
+ *  - turn_advanced
+ *      Descripción: Estado resultante después de que el servidor avance un turno (posición/velocidades actualizadas).
+ *      Cuándo se emite: tras advance_turn (solo por el creador).
+ *      Payload: serializeRoomState(room) (igual que arriba)
  *
- * Security / production notes:
- *  - Validate inputs thoroughly in production
- *  - Consider scaling with Redis or sharing state via DB if multiple server instances
+ * Acknowledgements (shape de las respuestas vía ack):
+ *  - Respuesta genérica de éxito: { ok: true, ...payload }
+ *  - Respuesta de error: { ok: false, err: 'ERROR_CODE' }
+ *
+ * REST endpoints (mínimos):
+ *  - GET /       -> { ok: true, rooms: number }
+ *  - GET /rooms  -> [ { code, id, createdAt, players, started }, ... ]
+ *
+ * Nota de seguridad:
+ *  - Validar inputs en producción y restringir CORS según dominios permitidos.
  */
 
 const express = require('express')
