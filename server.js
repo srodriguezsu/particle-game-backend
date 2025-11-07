@@ -6,9 +6,27 @@
  *
  * Events (socket) RECEIVED from clients:
  *  - create_room { name, emoji, color, role } -> ack { ok, roomCode, room }
+ *  {
+ *     "name": "Tyler the creator",
+ *     "emoji": "A",
+ *     "color": "#FFFF",
+ *     "role": "player"
+ * }
  *  - join_room { roomCode, name, emoji, color, role } -> ack { ok, room }
+ *  {
+ *     "roomCode": "382718",
+ *     "name": "Sebas",
+ *     "emoji": ".",
+ *     "color": "#FFFF",
+ *     "role": "player"
+ * }
  *  - start_game (creator only) -> ack { ok }
  *  - submit_choice { roomCode, alpha(0-5), beta(0-5) } -> ack { ok }
+ *  {
+ *     "roomCode": "382718",
+ *     "alpha": 2,
+ *     "beta": 3
+ * }
  *  - advance_turn (creator only) -> ack { ok }
  *  - leave_room -> ack { ok }
  *
