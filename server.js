@@ -182,7 +182,7 @@ function joinRoom(socket, roomCode, joinInfo) {
         existing.name = joinInfo.name || existing.name
         existing.emoji = joinInfo.emoji || existing.emoji
         existing.color = joinInfo.color || existing.color
-        existing.role = joinInfo.role === 'spectator' ? 'spectator' : 'player'
+        existing.role = room.started ? 'spectator' : 'player'
         if (existing.role === 'spectator') room.spectators.add(socket.id)
     } else {
         // new player
