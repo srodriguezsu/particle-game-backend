@@ -168,11 +168,15 @@ function makePlayerObject(socketId, info = {}) {
 // Example objective function f(x,y) to minimize
 // You can replace this for any multimodal function
 function evaluatePos(pos) {
-    // simple Rastrigin-like mixture (for demo)
-    const x = pos.x, y = pos.y
-    const A = 10
-    return 2*A + (x*x - A * Math.cos(2*Math.PI*x)) + (y*y - A * Math.cos(2*Math.PI*y))
+    // Schwefel function (n=2)
+    const x = pos.x, y = pos.y;
+    const c = 418.9828872724339; // constant per dimension
+    return 2 * c - (
+        x * Math.sin(Math.sqrt(Math.abs(x))) +
+        y * Math.sin(Math.sqrt(Math.abs(y)))
+    );
 }
+
 
 /* ---------- Core operations ---------- */
 
