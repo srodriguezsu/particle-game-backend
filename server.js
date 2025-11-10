@@ -90,10 +90,15 @@ const app = express()
 app.use(cors({origin: '*'}));
 const server = http.createServer(app)
 const io = new Server(server, {
-    cors: { origin: '*' }
+    cors: { origin: '*' },
+    pingInterval: 25000, // cada 25s envía ping
+    pingTimeout: 60000,  // espera hasta 60s para pong antes de cortar
+    transports: ['websocket', 'polling'] // preferir websocket
 })
 
+
 const PORT = process.env.PORT || 3001
+const AXIS_LIMIT = 100;
 
 /* ---------- Helper utilities ---------- */
 
@@ -139,8 +144,11 @@ function createRoom(creatorSocket, creatorInfo) {
 }
 
 function makePlayerObject(socketId, info = {}) {
-    // default random start pos in [-10,10]// default random start pos in [-100,100]
-    const defaultPos = { x: (Math.random() * 200 - 100), y: (Math.random() * 200 - 100) }
+    // posición inicial aleatoria en [-AXIS_LIMIT, AXIS_LIMIT]
+    const defaultPos = {
+        x: (Math.random() * 2 * AXIS_LIMIT - AXIS_LIMIT),
+        y: (Math.random() * 2 * AXIS_LIMIT - AXIS_LIMIT)
+    }
     return {
         id: socketId,
         name: info.name || 'Anon',
@@ -148,7 +156,7 @@ function makePlayerObject(socketId, info = {}) {
         color: info.color || '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'),
         role: info.role === 'spectator' ? 'spectator' : 'player',
         pos: info.pos || defaultPos,
-        vel: info.vel || { x: 0, y: 0 },
+        vel: info.vel || { x: (Math.random() * 2 - 1), y: (Math.random() * 2 - 1) },
         pbest: { ... (info.pos || defaultPos), score: evaluatePos(info.pos || defaultPos) },
         pendingChoice: null, // { c1, c2, w }
         lastSeen: now()
@@ -261,8 +269,8 @@ function advanceTurn(roomCode) {
         }
 
         // keep inside [-100,100]
-        newPos.x = clamp(newPos.x, -100, 100)
-        newPos.y = clamp(newPos.y, -100, 100)
+        newPos.x = clamp(newPos.x, -1 * AXIS_LIMIT, AXIS_LIMIT)
+        newPos.y = clamp(newPos.y, -1 * AXIS_LIMIT, AXIS_LIMIT)
 
         // assign
         p.vel = newVel
