@@ -21,11 +21,11 @@
  *     "role": "player"
  * }
  *  - start_game (creator only) -> ack { ok }
- *  - submit_choice { roomCode, alpha(0-5), beta(0-5) } -> ack { ok }
+ *  - submit_choice { roomCode, c1(0-5), c2(0-5) } -> ack { ok }
  *  {
  *     "roomCode": "382718",
- *     "alpha": 2,
- *     "beta": 3
+ *     "c1": 2,
+ *     "c2": 3
  * }
  *  - advance_turn (creator only) -> ack { ok }
  *  - leave_room -> ack { ok }
@@ -93,7 +93,7 @@ const io = new Server(server, {
     cors: { origin: '*' }
 })
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3001
 
 /* ---------- Helper utilities ---------- */
 
@@ -150,7 +150,7 @@ function makePlayerObject(socketId, info = {}) {
         pos: info.pos || defaultPos,
         vel: info.vel || { x: 0, y: 0 },
         pbest: { ... (info.pos || defaultPos), score: evaluatePos(info.pos || defaultPos) },
-        pendingChoice: null, // { alpha, beta }
+        pendingChoice: null, // { c1, c2, w }
         lastSeen: now()
     }
 }
@@ -232,15 +232,14 @@ function advanceTurn(roomCode) {
     if (!room.started) return { ok: false, err: 'NOT_STARTED' }
 
     room.turn += 1
-    const w = 0.7 // inertia (could be adjustable)
     const dt = 1.0
-    // For reproducibility we generate r1,r2 per player
     for (const [id, p] of room.players) {
         if (p.role === 'spectator') continue
-        const choice = p.pendingChoice || { alpha: 2, beta: 2 } // default if didn't send
-        // translate alpha/beta (0..5) to c1/c2 numeric multipliers
-        const c1 = clamp(choice.alpha, 0, 2.5)
-        const c2 = clamp(choice.beta, 0, 2.5)
+        const choice = p.pendingChoice || { w: 0.7, c1: 2, c2: 2 } // default if didn't send
+        // translate c1/c2 (0..5) to c1/c2 numeric multipliers
+        const c1 = clamp(choice.c1, 0, 2.5)
+        const c2 = clamp(choice.c2, 0, 2.5)
+        const w = clamp(choice.w, 0, 2.5)
 
         // internal pbest pos
         const pbestPos = { x: p.pbest.x ?? p.pos.x, y: p.pbest.y ?? p.pos.y }
@@ -261,7 +260,7 @@ function advanceTurn(roomCode) {
             y: p.pos.y + newVel.y * dt
         }
 
-        // optional domain clamp (example: keep inside [-100,100])
+        // keep inside [-100,100]
         newPos.x = clamp(newPos.x, -100, 100)
         newPos.y = clamp(newPos.y, -100, 100)
 
@@ -300,8 +299,8 @@ function serializeRoomState(room) {
             role: p.role,
             pos: p.pos,
             vel: p.vel,
-            // DO NOT send other players' pbest scores if you want privacy; here we send only pbest pos but you can remove
-            pbest: { x: p.pbest.x, y: p.pbest.y, score: p.pbest.score }
+            pbest: { x: p.pbest.x, y: p.pbest.y, score: p.pbest.score },
+            pendingChoice: p.pendingChoice
         })
     }
     return {
@@ -386,11 +385,17 @@ io.on('connection', socket => {
         if (!p) return ack?.({ ok: false, err: 'PLAYER_NOT_IN_ROOM' })
         if (p.role === 'spectator') return ack?.({ ok: false, err: 'SPECTATOR_CANNOT_PLAY' })
 
-        const alpha = Number(payload?.alpha)
-        const beta = Number(payload?.beta)
-        if (Number.isNaN(alpha) || Number.isNaN(beta)) return ack?.({ ok: false, err: 'BAD_INPUT' })
+        const c1 = Number(payload?.c1)
+        const c2 = Number(payload?.c2)
+        const w = Number(payload?.w)
+        if (Number.isNaN(c1) || Number.isNaN(c2)) return ack?.({ ok: false, err: 'BAD_INPUT' })
         // clamp to 0..5 and integer
-        p.pendingChoice = { alpha: clamp(Math.round(alpha), 0, 5), beta: clamp(Math.round(beta), 0, 5) }
+        p.pendingChoice = {
+            c1: clamp(c1, 0, 2.5),
+            c2: clamp(c2, 0, 2.5),
+            w: clamp(w, 0, 2.5),
+        }
+        io.to(roomCode).emit('room_update', serializeRoomState(room))
         ack?.({ ok: true })
     })
 
