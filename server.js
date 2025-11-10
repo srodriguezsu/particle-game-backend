@@ -274,8 +274,6 @@ function advanceTurn(roomCode) {
             p.pbest = { x: newPos.x, y: newPos.y, score }
         }
 
-        // clear pending choice for next round
-        p.pendingChoice = null
         p.lastSeen = now()
     }
 
@@ -395,7 +393,6 @@ io.on('connection', socket => {
             c2: clamp(c2, 0, 2.5),
             w: clamp(w, 0, 2.5),
         }
-        io.to(roomCode).emit('room_update', serializeRoomState(room))
         ack?.({ ok: true })
     })
 
