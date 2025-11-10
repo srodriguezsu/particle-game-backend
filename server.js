@@ -1,7 +1,7 @@
 // javascript
 /**
  * server.js
- * - Express + Socket.IO server for turn-based PSO-like game
+ * - Express and Socket.IO server for turn-based PSO-like game
  * - Rooms in memory (no persistent history)
  *
  * Events (socket) RECEIVED from clients:
@@ -139,8 +139,8 @@ function createRoom(creatorSocket, creatorInfo) {
 }
 
 function makePlayerObject(socketId, info = {}) {
-    // default random start pos in [-10,10]
-    const defaultPos = { x: (Math.random() * 20 - 10), y: (Math.random() * 20 - 10) }
+    // default random start pos in [-10,10]// default random start pos in [-100,100]
+    const defaultPos = { x: (Math.random() * 200 - 100), y: (Math.random() * 200 - 100) }
     return {
         id: socketId,
         name: info.name || 'Anon',
@@ -239,12 +239,8 @@ function advanceTurn(roomCode) {
         if (p.role === 'spectator') continue
         const choice = p.pendingChoice || { alpha: 2, beta: 2 } // default if didn't send
         // translate alpha/beta (0..5) to c1/c2 numeric multipliers
-        const c1 = clamp(choice.alpha, 0, 5)
-        const c2 = clamp(choice.beta, 0, 5)
-
-        // random factors
-        const r1 = Math.random()
-        const r2 = Math.random()
+        const c1 = clamp(choice.alpha, 0, 2.5)
+        const c2 = clamp(choice.beta, 0, 2.5)
 
         // internal pbest pos
         const pbestPos = { x: p.pbest.x ?? p.pos.x, y: p.pbest.y ?? p.pos.y }
@@ -255,8 +251,8 @@ function advanceTurn(roomCode) {
         const toGbest = { x: gbestPos.x - p.pos.x, y: gbestPos.y - p.pos.y }
 
         const newVel = {
-            x: w * p.vel.x + c1 * r1 * toPbest.x + c2 * r2 * toGbest.x,
-            y: w * p.vel.y + c1 * r1 * toPbest.y + c2 * r2 * toGbest.y
+            x: w * p.vel.x + c1 * toPbest.x + c2 * toGbest.x,
+            y: w * p.vel.y + c1 * toPbest.y + c2 * toGbest.y
         }
 
         // position update
